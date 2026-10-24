@@ -1,0 +1,57 @@
+name: daily
+on:
+  schedule:
+    - cron: "10 5 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: daily
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HQ_PASS: ${{ secrets.HQ_PASS }}
+      S2: ${{ secrets.S2 }}
+      SWID: ${{ secrets.SWID }}
+      L: ${{ secrets.L }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: tools
+        run: |
+          pip install --quiet cryptography
+          mkdir -p /tmp/d3 && cd /tmp/d3 && npm install --silent d3@7.9.0 > /dev/null
+      - name: open
+        run: |
+          python3 x/vault.py open static.enc w
+          if [ -f data.enc ]; then python3 x/vault.py open data.enc prev; fi
+      - name: fetch
+        run: node x/fetch.mjs w
+      - name: model
+        run: |
+          cd w
+          P=../prev/players.json; [ -f "$P" ] || P=none.json
+          python3 build.py players_raw.csv "$P" players.json > /dev/null
+          python3 sim.py players.json rosters.json schedule.json result.json 10000 > /dev/null
+          python3 build_html.py page.html players.json teams.json my_cats.json gm_profiles.json history.json report.json dash_plain.html road.json > /dev/null
+          python3 build_secure.py dash_plain.html /tmp/d3/node_modules/d3/dist/d3.min.js "$HQ_PASS" ../site > /dev/null
+      - name: seal
+        run: |
+          mkdir -p out
+          for f in players.json teams.json my_cats.json rosters.json live.json result.json road.json; do cp "w/$f" out/; done
+          date -u +%Y-%m-%dT%H:%MZ > out/fetched_at.txt
+          python3 x/vault.py seal out data.enc
+          cp site/index.html index.html
+      - name: push
+        run: |
+          git config user.name hq
+          git config user.email hq@localhost
+          git add index.html data.enc
+          git commit -q -m "Update" || exit 0
+          git pull -q --rebase origin main
+          git push -q origin main
