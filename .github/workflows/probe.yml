@@ -1,0 +1,10 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  p:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          code=$(curl -s -o r.json -w "%{http_code}" "https://lm-api-reads.fantasy.espn.com/apis/v3/games/fba/seasons/2027/segments/0/leagues/${{ secrets.L || '0' }}?view=mTeam")
+          echo "status=$code"
+          python3 -c "import json;d=json.load(open('r.json'));print('has_teams', bool(d.get('teams')) if isinstance(d,dict) else False)" || echo "has_teams False"
