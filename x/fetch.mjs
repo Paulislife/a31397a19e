@@ -20,6 +20,14 @@ for (const [k, [u, h]] of Object.entries(req)) {
   if (!r.ok) { console.log(`fetch: ${k} HTTP ${r.status}`); process.exit(1); }
   raw[k] = await r.json();
 }
+// last season's player rater for this league (non-fatal)
+try {
+  const f2 = {players: {filterSlotIds: {value: [0,1,2,3,4,5,6,7,8,9,10,11]}, sortDraftRanks: {sortPriority: 100, sortAsc: true, value: "STANDARD"},
+    sortPercOwned: {sortPriority: 2, sortAsc: false}, limit: 500, filterStatsForTopScoringPeriodIds: {value: 5, additionalValue: [`00${SEASON-1}`, `10${SEASON-1}`]}}};
+  const r2 = await fetch(`https://lm-api-reads.fantasy.espn.com/apis/v3/games/fba/seasons/${SEASON-1}/segments/0/leagues/${L}?view=kona_player_info`,
+    {headers: {"x-fantasy-filter": JSON.stringify(f2), "x-fantasy-platform": "kona-PROD", "x-fantasy-source": "kona", Cookie: cookie}});
+  if (r2.ok) raw.prev = await r2.json(); else console.log(`fetch: prev HTTP ${r2.status}`);
+} catch (e) { console.log("fetch: prev failed"); }
 if (!(raw.players.players || []).length || !(raw.teams.teams || []).length) { console.log("fetch: empty (login cookies expired?)"); process.exit(1); }
 fs.mkdirSync(out, {recursive: true});
 fs.writeFileSync(path.join(out, "raw.json"), JSON.stringify(raw));
