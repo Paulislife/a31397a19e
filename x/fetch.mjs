@@ -12,7 +12,7 @@ const filter = {players: {filterSlotIds: {value: [0,1,2,3,4,5,6,7,8,9,10,11]}, s
 const req = {
   players: [B + "?view=kona_player_info", {"x-fantasy-filter": JSON.stringify(filter), "x-fantasy-platform": "kona-PROD", "x-fantasy-source": "kona"}],
   teams: [B + "?view=mTeam&view=mRoster", {}],
-  live: [B + "?view=mMatchupScore&view=mMatchup&view=mStatus&view=mSettings", {}],
+  live: [B + "?view=mMatchupScore&view=mMatchup&view=mStatus&view=mSettings&view=mDraftDetail", {}],
 };
 const raw = {};
 for (const [k, [u, h]] of Object.entries(req)) {
