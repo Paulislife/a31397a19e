@@ -1,0 +1,41 @@
+name: history
+# One-off (manual) pull of past league seasons for model calibration. Separate from daily.yml so the daily data never depends on it.
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: daily
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      S2: ${{ secrets.S2 }}
+      SWID: ${{ secrets.SWID }}
+      L: ${{ secrets.L }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: tools
+        run: pip install --quiet cryptography
+      - name: fetch
+        run: node x/history.mjs h
+      - name: seal
+        run: python3 x/vault.py seal h hist.enc x/pipe.pub
+      - name: push
+        run: |
+          git config user.name hq
+          git config user.email hq@localhost
+          git add hist.enc
+          git commit -q -m "History" || exit 0
+          for i in 1 2 3 4 5; do
+            git pull -q --rebase origin main && git push -q origin main && exit 0
+            echo "push attempt $i failed, retrying"
+            git rebase --abort 2>/dev/null || true
+            sleep $((i * 15))
+          done
+          exit 1
